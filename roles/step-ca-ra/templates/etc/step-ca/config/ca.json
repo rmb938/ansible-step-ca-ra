@@ -1,0 +1,63 @@
+{
+  "address": ":443",
+  "dnsNames": [
+    "{{ ansible_fqdn }}"
+  ],
+  "db": {
+    "type": "badgerV2",
+    "dataSource": "/etc/step-ca/db"
+  },
+  "logger": {
+    "format": "text"
+  },
+  "authority": {
+    "type": "stepcas",
+    "certificateAuthority": "https://cuboid-topi.rmb1993-gmail-com.ca.smallstep.com",
+    "certificateAuthorityFingerprint": "eb136a5118931a2306964469705323521dda8c43d26ec67e1c5508eb123f9c70",
+    "certificateIssuer": {
+      "type": "jwk",
+      "provisioner": "{{ ansible_fqdn }}"
+    },
+    "policy": {
+      "x509": {
+        "allow": {
+          "dns": [
+            "*.rmb938.me"
+          ]
+        }
+      }
+    },
+    "provisioners": [
+      {
+        "type": "ACME",
+        "name": "acme",
+        "forceCN": true,
+        "claims": {
+          "minTLSCertDuration": "2190h",
+          "maxTLSCertDuration": "2190h",
+          "defaultTLSCertDuration": "2190h",
+          "disableRenewal": false,
+          "allowRenewalAfterExpiry": false,
+          "enableSSHCA": false
+        },
+        "challenges": [
+          "http-01"
+        ],
+        "options": {
+          "x509": {
+            "templateFile": "/etc/step-ca/templates/x509-acme.tpl"
+          }
+        }
+      }
+    ]
+  },
+  "tls": {
+    "cipherSuites": [
+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "minVersion": 1.2,
+    "maxVersion": 1.3,
+    "renegotiation": false
+  }
+}

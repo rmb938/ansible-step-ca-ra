@@ -1,0 +1,98 @@
+- name: Install Step CA
+  # TODO: smallstep doesn't have a apt repo, so we need a way to keep this updated
+  ansible.builtin.apt:
+    deb: https://dl.smallstep.com/certificates/docs-ca-install/latest/step-ca_amd64.deb
+
+- name: Allow binding to 443
+  community.general.capabilities:
+    path: /usr/bin/step-ca
+    capability: cap_net_bind_service=eip
+    state: present
+
+- name: Create step user
+  ansible.builtin.user:
+    name: step
+    home: /etc/step-ca
+    create_home: true
+    shell: /bin/false
+    system: true
+
+- name: Create db dir
+  ansible.builtin.file:
+    path: /etc/step-ca/db
+    state: directory
+    mode: "0755"
+    owner: step
+    group: step
+
+- name: Create config dir
+  ansible.builtin.file:
+    path: /etc/step-ca/config
+    state: directory
+    mode: "0755"
+    owner: step
+    group: step
+
+- name: Create templates dir
+  ansible.builtin.file:
+    path: /etc/step-ca/templates
+    state: directory
+    mode: "0755"
+    owner: step
+    group: step
+
+- name: Place step-ca config
+  ansible.builtin.template:
+    src: etc/step-ca/config/ca.json
+    dest: /etc/step-ca/config/ca.json
+    mode: "0644"
+    owner: step
+    group: step
+  register: step_ca_config
+
+- name: Place step-ca x509 acme template
+  ansible.builtin.copy:
+    src: etc/step-ca/templates/x509-acme.tpl
+    dest: /etc/step-ca/templates/x509-acme.tpl
+    mode: "0644"
+    owner: step
+    group: step
+
+- name: Symlink defaults
+  ansible.builtin.file:
+    src: /etc/step/config/defaults.json
+    dest: /etc/step-ca/config/defaults.json
+    state: link
+
+- name: Copy provisioner password file
+  ansible.builtin.copy:
+    src: /etc/ssh/ssh_host_ed25519_key
+    dest: /etc/step-ca/ssh_host_ed25519_key
+    remote_src: true
+    owner: step
+    group: step
+    mode: "0600"
+
+- name: Place step-ca service
+  ansible.builtin.template:
+    src: etc/systemd/system/step-ca.service
+    dest: /etc/systemd/system/step-ca.service
+    mode: "0644"
+  register: smallstep_ca_systemd_service_template
+
+- name: Reload SystemD # noqa: no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: smallstep_ca_systemd_service_template.changed
+
+- name: Enable and start
+  ansible.builtin.systemd_service:
+    name: step-ca.service
+    state: started
+    enabled: true
+
+- name: Reload on config change # noqa: no-handler
+  ansible.builtin.systemd_service:
+    name: step-ca.service
+    state: reloaded
+  when: step_ca_config.changed
