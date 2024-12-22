@@ -1,0 +1,42 @@
+- name: Bootstrap
+  hosts: all
+  become: true
+  tasks:
+    - name: Create step user
+      ansible.builtin.user:
+        name: step
+        home: /etc/step-ca
+        create_home: true
+        shell: /bin/false
+        system: true
+
+    - name: Create passwords dir
+      ansible.builtin.file:
+        path: /etc/step-ca/passwords
+        state: directory
+        mode: "0755"
+        owner: step
+        group: step
+
+    - name: Create Provisioner and Generate Password
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          step ca provisioner add {{ ansible_fqdn }} --type JWK --create --disable-ssh-ca-user --disable-ssh-ca-host \
+            --x509-min-dur=2190h --x509-max-dur=2190h --x509-default-dur=2190h --ssh=false \
+            --password-file=<(openssl rand -base64 32 | tee /dev/stderr)
+      environment:
+        STEP_ADMIN_SUBJECT: dummy@example.com
+        STEP_ADMIN_PROVISIONER: authority-admin-auth0-sso
+      changed_when: false
+      delegate_to: localhost
+      become: false
+      register: provisioner_add
+
+    - name: Save Provisioner password to file
+      ansible.builtin.copy:
+        content: "{{ provisioner_add.stderr_lines[0] }}"
+        dest: /etc/step-ca/passwords/{{ ansible_fqdn }}
+        mode: "0600"
+        owner: step
+        group: step

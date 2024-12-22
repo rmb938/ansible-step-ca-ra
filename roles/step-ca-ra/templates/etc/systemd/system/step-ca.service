@@ -7,6 +7,7 @@ Wants=network-online.target
 StartLimitIntervalSec=30
 StartLimitBurst=3
 ConditionFileNotEmpty=/etc/step-ca/config/ca.json
+ConditionFileNotEmpty=/etc/step-ca/passwords/{{ ansible_fqdn }}
 
 [Service]
 Type=simple
@@ -14,7 +15,7 @@ User=step
 Group=step
 Environment=STEPPATH=/etc/step-ca
 WorkingDirectory=/etc/step-ca
-ExecStart=/usr/bin/step-ca config/ca.json --issuer-password-file=/etc/step-ca/ssh_host_ed25519_key
+ExecStart=/usr/bin/step-ca config/ca.json --issuer-password-file=/etc/step-ca/passwords/{{ ansible_fqdn }}
 ExecReload=/bin/kill --signal HUP $MAINPID
 Restart=on-failure
 RestartSec=5

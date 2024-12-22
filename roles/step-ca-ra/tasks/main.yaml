@@ -64,15 +64,6 @@
     dest: /etc/step-ca/config/defaults.json
     state: link
 
-- name: Copy provisioner password file
-  ansible.builtin.copy:
-    src: /etc/ssh/ssh_host_ed25519_key
-    dest: /etc/step-ca/ssh_host_ed25519_key
-    remote_src: true
-    owner: step
-    group: step
-    mode: "0600"
-
 - name: Place step-ca service
   ansible.builtin.template:
     src: etc/systemd/system/step-ca.service
