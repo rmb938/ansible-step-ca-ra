@@ -22,7 +22,8 @@
       "x509": {
         "allow": {
           "dns": [
-            "*.rmb938.me"
+            "*.rmb938.me",
+            "*.tailnet-047c.ts.net"
           ]
         }
       }
