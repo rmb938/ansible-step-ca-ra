@@ -11,6 +11,5 @@ Ansible to deploy step-ca as a Registration Authority
 ## Run
 
 ```bash
-ansible-playbook -i hosts setup.yaml -v --diff
 ansible-playbook -i hosts site.yaml -v --diff
 ```

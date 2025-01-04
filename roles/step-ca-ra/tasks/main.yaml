@@ -1,12 +1,17 @@
-- name: Install Step CA
-  # TODO: smallstep doesn't have a apt repo, so we need a way to keep this updated
-  ansible.builtin.apt:
-    deb: https://dl.smallstep.com/certificates/docs-ca-install/latest/step-ca_amd64.deb
+---
+- name: Bootstrap step cli
+  ansible.builtin.command: >-
+    step ca bootstrap --ca-url https://cuboid-topi.rmb1993-gmail-com.ca.smallstep.com \
+      --fingerprint eb136a5118931a2306964469705323521dda8c43d26ec67e1c5508eb123f9c70
+  args:
+    creates: /etc/step/config/defaults.json
+  environment:
+    STEPPATH: /etc/step
 
-- name: Allow binding to 443
-  community.general.capabilities:
-    path: /usr/bin/step-ca
-    capability: cap_net_bind_service=eip
+- name: Install step ca
+  ansible.builtin.package:
+    name:
+      - step-ca
     state: present
 
 - name: Create step user
@@ -16,6 +21,36 @@
     create_home: true
     shell: /bin/false
     system: true
+
+- name: Allow binding to 443
+  community.general.capabilities:
+    path: /usr/bin/step-ca
+    capability: cap_net_bind_service=eip
+    state: present
+
+- name: Create datavg
+  community.general.lvg:
+    vg: data
+    pvs: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+
+- name: Create step-ca lv
+  community.general.lvol:
+    vg: data
+    lv: step-ca
+    size: 5G
+
+- name: Format step-ca lv
+  community.general.filesystem:
+    fstype: xfs
+    dev: /dev/data/step-ca
+
+- name: Mount step-ca drive
+  ansible.posix.mount:
+    path: /etc/step-ca
+    src: /dev/data/step-ca
+    fstype: xfs
+    boot: true
+    state: mounted
 
 - name: Create db dir
   ansible.builtin.file:
@@ -41,6 +76,42 @@
     owner: step
     group: step
 
+- name: Check if provisioner password exists
+  ansible.builtin.stat:
+    path: /etc/step-ca/passwords/{{ ansible_fqdn }}
+  register: provisioner_password_file
+
+- name: Provisioner Block
+  when: not provisioner_password_file.stat.exists
+  block:
+    - name: Create passwords dir
+      ansible.builtin.file:
+        path: /etc/step-ca/passwords
+        state: directory
+        mode: "0755"
+        owner: step
+        group: step
+
+    - name: Create Provisioner and Generate Password
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          step ca provisioner add {{ ansible_fqdn }} --type JWK --create --disable-ssh-ca-user --disable-ssh-ca-host \
+            --x509-min-dur=2190h --x509-max-dur=2190h --x509-default-dur=2190h --ssh=false \
+            --password-file=<(openssl rand -base64 32 | tee /dev/stderr)
+      changed_when: false
+      delegate_to: localhost
+      become: false
+      register: provisioner_add
+
+    - name: Save Provisioner password to file
+      ansible.builtin.copy:
+        content: "{{ provisioner_add.stderr_lines[0] }}"
+        dest: /etc/step-ca/passwords/{{ ansible_fqdn }}
+        mode: "0600"
+        owner: step
+        group: step
+
 - name: Place step-ca config
   ansible.builtin.template:
     src: etc/step-ca/config/ca.json
@@ -57,12 +128,6 @@
     mode: "0644"
     owner: step
     group: step
-
-- name: Symlink defaults
-  ansible.builtin.file:
-    src: /etc/step/config/defaults.json
-    dest: /etc/step-ca/config/defaults.json
-    state: link
 
 - name: Place step-ca service
   ansible.builtin.template:
