@@ -104,6 +104,14 @@
       become: false
       register: provisioner_add
 
+    - name: Set provisioner policy
+      ansible.builtin.shell:
+        cmd: |
+          step ca policy provisioner x509 allow dns '*.us-homelab1.hl.rmb938.me' --provisioner {{ ansible_fqdn }}
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
     - name: Save Provisioner password to file
       ansible.builtin.copy:
         content: "{{ provisioner_add.stderr_lines[0] }}"

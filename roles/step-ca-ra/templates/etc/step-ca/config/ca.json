@@ -1,5 +1,6 @@
 {
   "address": ":443",
+  "commonName": "{{ ansible_fqdn }}",
   "dnsNames": [
     "{{ ansible_fqdn }}"
   ],
@@ -22,8 +23,7 @@
       "x509": {
         "allow": {
           "dns": [
-            "*.rmb938.me",
-            "*.tailnet-047c.ts.net"
+            "*.us-homelab1.hl.rmb938.me"
           ]
         }
       }
